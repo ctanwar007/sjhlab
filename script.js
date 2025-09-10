@@ -1,139 +1,59 @@
-const CLIENT_ID = '638251800613-iuqc29d5dri50o88cjc75qatc7uoh5bo.apps.googleusercontent.com';
-const API_KEY = 'AIzaSyCfetf4gQS5lIeqPn7um9ZHA5YBwoirOIw';
-const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
-const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+// Initialize Firebase (Google Cloud Firestore) - replace with your config
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
-let tokenClient;
-let gapiInited = false;
-let gisInited = false;
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
 
-let labTests = [];
-let isEditing = false;
-let actionHeader = null;
-let rowToDelete = null;
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
 
-// Declare DOM elements globally
-let openModalBtn, closeModalBtn, editModeBtn, formModal, labTestForm, tableHead, searchBar, tableBody;
-let confirmationModal, confirmDeleteBtn, cancelDeleteBtn;
-let passwordModal, passwordInput, passwordError, submitPasswordBtn, cancelPasswordBtn, closePasswordBtn;
-
-// Called when gapi is loaded
-function gapiLoaded() {
-    gapi.load('client', initializeGapiClient);
-}
-
-// Initialize Google API client
-async function initializeGapiClient() {
-    await gapi.client.init({
-        apiKey: API_KEY,
-        discoveryDocs: [DISCOVERY_DOC],
+// Function to gather data from editable table into array of objects
+function getTableData() {
+  const table = document.getElementById("labTestTable");
+  const data = [];
+  for (let i = 1; i < table.rows.length; i++) { // skip header row
+    const row = table.rows[i];
+    data.push({
+      testName: row.cells[0].innerText.trim(),
+      result: row.cells[1].innerText.trim(),
+      unit: row.cells[2].innerText.trim()
     });
-    gapiInited = true;
-    maybeEnableButtons();
+  }
+  return data;
 }
 
-// Called when Google Identity Services are loaded
-function gisLoaded() {
-    tokenClient = google.accounts.oauth2.initTokenClient({
-        client_id: CLIENT_ID,
-        scope: SCOPES,
-        callback: '', // will assign later
-    });
-    gisInited = true;
-    maybeEnableButtons();
+// Save data locally using LocalStorage
+function saveLocal(data) {
+  localStorage.setItem("labTestData", JSON.stringify(data));
+  console.log("Data saved locally.");
 }
 
-function maybeEnableButtons() {
-    if (gapiInited && gisInited) {
-        document.getElementById('authorize_button').style.visibility = 'visible';
-    }
+// Save data remotely to Google Firestore
+async function saveToCloud(data) {
+  try {
+    // To keep it simple, save all data at once in a single document per save
+    await addDoc(collection(db, "labTestResults"), { tests: data, timestamp: new Date() });
+    console.log("Data saved to Google Cloud Firestore.");
+  } catch (e) {
+    console.error("Error saving to cloud: ", e);
+  }
 }
 
-// Auth button handler
-function handleAuthClick() {
-    tokenClient.callback = async (resp) => {
-        if (resp.error !== undefined) throw (resp);
-        document.getElementById('signout_button').style.visibility = 'visible';
-        document.getElementById('authorize_button').value = 'Refresh';
-
-        // Attempt to load saved data after login
-        const fileId = localStorage.getItem('labtests_file_id');
-        if (fileId) {
-            await loadLabTestsFromDrive(fileId);
-        }
-    };
-    if (gapi.client.getToken() === null) {
-        tokenClient.requestAccessToken({ prompt: 'consent' });
-    } else {
-        tokenClient.requestAccessToken({ prompt: '' });
-    }
+// Main function to save data both locally and to cloud
+function saveData() {
+  const data = getTableData();
+  saveLocal(data);
+  saveToCloud(data);
 }
 
-// Sign out handler
-function handleSignoutClick() {
-    const token = gapi.client.getToken();
-    if (token !== null) {
-        google.accounts.oauth2.revoke(token.access_token);
-        gapi.client.setToken('');
-        document.getElementById('authorize_button').value = 'Authorize';
-        document.getElementById('signout_button').style.visibility = 'hidden';
 
-        // Clear in-memory and UI data on sign out
-        labTests = [];
-        renderTable(labTests);
-        localStorage.removeItem('labtests_file_id');
-    }
-}
-
-// Upload labTests data to Google Drive
-async function uploadLabTestsToDrive() {
-    const fileContent = JSON.stringify(labTests);
-    const file = new Blob([fileContent], { type: 'application/json' });
-    const metadata = {
-        name: 'labtests.json',
-        mimeType: 'application/json'
-    };
-
-    const accessToken = gapi.auth.getToken().access_token;
-    const form = new FormData();
-    form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-    form.append('file', file);
-
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id');
-    xhr.setRequestHeader('Authorization', 'Bearer ' + accessToken);
-    xhr.responseType = 'json';
-    xhr.onload = () => {
-        if (xhr.status === 200) {
-            alert('Saved! Google Drive file id: ' + xhr.response.id);
-            localStorage.setItem('labtests_file_id', xhr.response.id);
-        } else {
-            alert('Failed to save data to Google Drive.');
-        }
-    };
-    xhr.onerror = () => alert('Failed to save data to Google Drive.');
-    xhr.send(form);
-}
-
-// Load labTests data from Google Drive
-async function loadLabTestsFromDrive(fileId) {
-    const accessToken = gapi.auth.getToken().access_token;
-    const url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
-
-    const xhr = new XMLHttpRequest();
-    xhr.open('GET', url);
-    xhr.setRequestHeader('Authorization', 'Bearer ' + accessToken);
-    xhr.onload = () => {
-        if (xhr.status === 200) {
-            labTests = JSON.parse(xhr.responseText);
-            renderTable(labTests);
-        } else {
-            alert('Failed to load saved data from Google Drive.');
-        }
-    };
-    xhr.onerror = () => alert('Failed to load saved data from Google Drive.');
-    xhr.send();
-}
 
 // Show the form modal
 const showFormModal = () => {
