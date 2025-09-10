@@ -12,6 +12,11 @@ let isEditing = false;
 let actionHeader = null;
 let rowToDelete = null;
 
+// Declare DOM elements globally
+let openModalBtn, closeModalBtn, editModeBtn, formModal, labTestForm, tableHead, searchBar, tableBody;
+let confirmationModal, confirmDeleteBtn, cancelDeleteBtn;
+let passwordModal, passwordInput, passwordError, submitPasswordBtn, cancelPasswordBtn, closePasswordBtn;
+
 // Called when gapi is loaded
 function gapiLoaded() {
     gapi.load('client', initializeGapiClient);
@@ -207,30 +212,35 @@ const deleteTestEntry = (index) => {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Basic DOM elements setup
-    const openModalBtn = document.getElementById('open-modal-btn');
-    const closeModalBtn = document.getElementById('close-modal-btn');
-    const editModeBtn = document.getElementById('edit-mode-btn');
-    const formModal = document.getElementById('form-modal');
-    const labTestForm = document.getElementById('lab-test-form');
-    const tableHead = document.getElementById('table-head');
-    const searchBar = document.getElementById('search-bar');
-    const tableBody = document.getElementById('lab-data-table-body');
+    openModalBtn = document.getElementById('open-modal-btn');
+    closeModalBtn = document.getElementById('close-modal-btn');
+    editModeBtn = document.getElementById('edit-mode-btn');
+    formModal = document.getElementById('form-modal');
+    labTestForm = document.getElementById('lab-test-form');
+    tableHead = document.getElementById('table-head');
+    searchBar = document.getElementById('search-bar');
+    tableBody = document.getElementById('lab-data-table-body');
 
-    const confirmationModal = document.getElementById('confirmation-modal');
-    const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
-    const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
-    const passwordModal = document.getElementById('password-modal');
-    const passwordInput = document.getElementById('password-input');
-    const passwordError = document.getElementById('password-error');
-    const submitPasswordBtn = document.getElementById('submit-password-btn');
-    const cancelPasswordBtn = document.getElementById('cancel-password-btn');
-    const closePasswordBtn = document.getElementById('close-password-btn');
+    confirmationModal = document.getElementById('confirmation-modal');
+    confirmDeleteBtn = document.getElementById('confirm-delete-btn');
+    cancelDeleteBtn = document.getElementById('cancel-delete-btn');
+
+    passwordModal = document.getElementById('password-modal');
+    passwordInput = document.getElementById('password-input');
+    passwordError = document.getElementById('password-error');
+    submitPasswordBtn = document.getElementById('submit-password-btn');
+    cancelPasswordBtn = document.getElementById('cancel-password-btn');
+    closePasswordBtn = document.getElementById('close-password-btn');
 
     openModalBtn.addEventListener('click', showFormModal);
     closeModalBtn.addEventListener('click', hideFormModal);
-    closePasswordBtn.addEventListener('click', hidePasswordModal);
-    cancelPasswordBtn.addEventListener('click', hidePasswordModal);
+    editModeBtn.addEventListener('click', () => {
+        if (!isEditing) {
+            showPasswordModal();
+        } else {
+            exitEditMode();
+        }
+    });
 
     labTestForm.addEventListener('submit', (event) => {
         event.preventDefault();
@@ -277,47 +287,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    const enterEditMode = () => {
-        isEditing = true;
-        editModeBtn.textContent = 'Done Editing';
-        editModeBtn.classList.remove('bg-white');
-        editModeBtn.classList.add('bg-[#B2CBEF]');
-        openModalBtn.classList.add('hidden');
-        actionHeader = document.createElement('th');
-        actionHeader.textContent = 'Actions';
-        actionHeader.classList.add('text-[#34495E]', 'rounded-tr-xl');
-        const lastHeader = tableHead.querySelector('th:last-child');
-        if (lastHeader) {
-            lastHeader.classList.remove('rounded-tr-xl');
-        }
-        tableHead.querySelector('tr').appendChild(actionHeader);
-        renderTable(labTests);
-    };
-
-    const exitEditMode = () => {
-        isEditing = false;
-        editModeBtn.textContent = 'Edit Mode';
-        editModeBtn.classList.remove('bg-[#B2CBEF]');
-        editModeBtn.classList.add('bg-white');
-        openModalBtn.classList.remove('hidden');
-        if (actionHeader) {
-            actionHeader.remove();
-            const lastHeader = tableHead.querySelector('th:last-child');
-            if (lastHeader) {
-                lastHeader.classList.add('rounded-tr-xl');
-            }
-        }
-        renderTable(labTests);
-    };
-
-    editModeBtn.addEventListener('click', () => {
-        if (!isEditing) {
-            showPasswordModal();
-        } else {
-            exitEditMode();
-        }
-    });
-
     submitPasswordBtn.addEventListener('click', () => {
         const password = passwordInput.value;
         if (password === 'Chetan@1') {
@@ -328,11 +297,47 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Initial render empty or load from local (Drive API load done after auth)
+    cancelPasswordBtn.addEventListener('click', hidePasswordModal);
+    closePasswordBtn.addEventListener('click', hidePasswordModal);
+
+    // Initial render empty or load from Drive after OAuth login
     renderTable(labTests);
 });
 
-// Export functions globally for button onclicks
+const enterEditMode = () => {
+    isEditing = true;
+    editModeBtn.textContent = 'Done Editing';
+    editModeBtn.classList.remove('bg-white');
+    editModeBtn.classList.add('bg-[#B2CBEF]');
+    openModalBtn.classList.add('hidden');
+    actionHeader = document.createElement('th');
+    actionHeader.textContent = 'Actions';
+    actionHeader.classList.add('text-[#34495E]', 'rounded-tr-xl');
+    const lastHeader = tableHead.querySelector('th:last-child');
+    if (lastHeader) {
+        lastHeader.classList.remove('rounded-tr-xl');
+    }
+    tableHead.querySelector('tr').appendChild(actionHeader);
+    renderTable(labTests);
+};
+
+const exitEditMode = () => {
+    isEditing = false;
+    editModeBtn.textContent = 'Edit Mode';
+    editModeBtn.classList.remove('bg-[#B2CBEF]');
+    editModeBtn.classList.add('bg-white');
+    openModalBtn.classList.remove('hidden');
+    if (actionHeader) {
+        actionHeader.remove();
+        const lastHeader = tableHead.querySelector('th:last-child');
+        if (lastHeader) {
+            lastHeader.classList.add('rounded-tr-xl');
+        }
+    }
+    renderTable(labTests);
+};
+
+// Export necessary functions globally if buttons are using inline onclick
 window.gapiLoaded = gapiLoaded;
 window.gisLoaded = gisLoaded;
 window.handleAuthClick = handleAuthClick;
