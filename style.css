@@ -1,0 +1,32 @@
+/* Custom styles for the overlay and modal */
+#form-modal-overlay, #confirmation-modal-overlay, #password-modal-overlay {
+    background-color: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(5px);
+}
+
+/* Set the custom font for the body */
+body {
+    font-family: 'Inter', sans-serif;
+}
+
+/* Basic table styling for readability */
+.lab-table th, .lab-table td {
+    padding: 1rem;
+    border-bottom: 1px solid #DEE2E6;
+    text-align: left;
+}
+
+.lab-table th {
+    text-align: left;
+    font-weight: 700;
+}
+
+.lab-table tr:nth-child(even) {
+    background-color: #E9ECEF;
+}
+
+/* Add a subtle hover effect to table rows */
+.lab-table tbody tr:hover {
+    background-color: #B2CBEF;
+    transition: background-color 0.2s ease-in-out;
+}
